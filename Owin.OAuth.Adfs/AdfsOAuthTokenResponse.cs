@@ -17,13 +17,13 @@ namespace Owin.OAuth.Adfs
             AccessToken = AdfsHelper.Value<string>(response, "access_token");
             TokenType = AdfsHelper.Value<string>(response, "token_type");
             RefreshToken = AdfsHelper.Value<string>(response, "refresh_token");
-            ExpiresIn = AdfsHelper.Value<string>(response, "expires_in");
+            ExpiresIn = AdfsHelper.Value<int>(response, "expires_in");
         }
 
         public dynamic Response { get; private set; }
         public string AccessToken { get; set; }
         public string TokenType { get; set; }
         public string RefreshToken { get; set; }
-        public string ExpiresIn { get; set; }
+        public int ExpiresIn { get; set; }
     }
 }

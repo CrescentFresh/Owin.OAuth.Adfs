@@ -37,7 +37,10 @@ namespace Owin.OAuth.Adfs
 
                 properties = Options.StateDataFormat.Unprotect(state);
                 if (properties == null)
+                {
+                    _logger.WriteWarning("The oauth state was missing or invalid.");
                     return null;
+                }
 
                 // OAuth2 10.12 CSRF
                 if (!ValidateCorrelationId(properties, _logger))
@@ -55,7 +58,6 @@ namespace Owin.OAuth.Adfs
                     return new AuthenticationTicket(null, properties);
                 }
 
-                var context = new AdfsCreatingTicketContext(Context, Options, _httpClient, token);
                 var identity = new ClaimsIdentity(Options.ClaimsIssuer);
 
                 return await CreateTicketAsync(identity, properties, token).ConfigureAwait(false);
@@ -164,7 +166,7 @@ namespace Owin.OAuth.Adfs
 
         public override async Task<bool> InvokeAsync()
         {
-            if (Options.CallbackPath == Request.Path)
+            if (Request.Path == Options.CallbackPath)
             {
                 return await HandleRemoteCallbackAsync().ConfigureAwait(false);
             }
@@ -217,7 +219,10 @@ namespace Owin.OAuth.Adfs
                 return false;
             }
 
-            Context.Authentication.SignIn(context.Properties, context.Identity);
+            if (context.SignInScheme != null && context.Identity != null)
+            {
+                Context.Authentication.SignIn(context.Properties, context.Identity);
+            }
 
             // Default redirect path is the base path
             if (string.IsNullOrEmpty(context.ReturnUri))

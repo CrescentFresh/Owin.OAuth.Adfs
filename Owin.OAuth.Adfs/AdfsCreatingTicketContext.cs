@@ -73,13 +73,9 @@ namespace Owin.OAuth.Adfs
         {
             get
             {
-                int value;
-                if (int.TryParse(TokenResponse.ExpiresIn, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
-                {
-                    return TimeSpan.FromSeconds(value);
-                }
-
-                return null;
+                if (TokenResponse.ExpiresIn <= 0)
+                    return null;
+                return TimeSpan.FromSeconds(TokenResponse.ExpiresIn);
             }
         }
 
