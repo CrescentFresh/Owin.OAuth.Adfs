@@ -134,10 +134,5 @@ namespace Owin.OAuth.Adfs
         /// the ADFS server).
         /// </summary>
         public string Resource { get; set; }
-
-        /// <summary>
-        /// Gets or sets the issuer that should be used for any claims that are created
-        /// </summary>
-        public string ClaimsIssuer { get; set; }
     }
 }

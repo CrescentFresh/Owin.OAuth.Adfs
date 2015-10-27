@@ -21,6 +21,14 @@ namespace Owin.OAuth.Adfs
         private readonly ILogger _logger;
         private readonly HttpClient _httpClient;
 
+        protected string CurrentUri
+        {
+            get
+            {
+                return Request.Scheme + Uri.SchemeDelimiter + Request.Host + Request.PathBase + Request.Path + Request.QueryString;
+            }
+        }
+
         public AdfsHandler(HttpClient httpClient, ILogger logger)
         {
             _httpClient = httpClient;
@@ -58,7 +66,7 @@ namespace Owin.OAuth.Adfs
                     return new AuthenticationTicket(null, properties);
                 }
 
-                var identity = new ClaimsIdentity(Options.ClaimsIssuer);
+                var identity = new ClaimsIdentity(Options.AuthenticationType);
 
                 return await CreateTicketAsync(identity, properties, token).ConfigureAwait(false);
             }
@@ -122,25 +130,10 @@ namespace Owin.OAuth.Adfs
 
             if (challenge != null)
             {
-                string baseUri =
-                    Request.Scheme +
-                    Uri.SchemeDelimiter +
-                    Request.Host +
-                    Request.PathBase;
-
-                string currentUri =
-                    baseUri +
-                    Request.Path +
-                    Request.QueryString;
-
-                string redirectUri =
-                    baseUri +
-                    Options.CallbackPath;
-
                 AuthenticationProperties properties = challenge.Properties;
                 if (string.IsNullOrEmpty(properties.RedirectUri))
                 {
-                    properties.RedirectUri = currentUri;
+                    properties.RedirectUri = CurrentUri;
                 }
 
                 // OAuth2 10.12 CSRF
@@ -153,7 +146,7 @@ namespace Owin.OAuth.Adfs
                         "?response_type=code" +
                         "&resource=" + Uri.EscapeDataString(Options.Resource) +
                         "&client_id=" + Uri.EscapeDataString(Options.ClientId) +
-                        "&redirect_uri=" + Uri.EscapeDataString(redirectUri) +
+                        "&redirect_uri=" + Uri.EscapeDataString(BuildRedirectUri(Options.CallbackPath)) +
                         "&state=" + Uri.EscapeDataString(state);
 
                 var redirectContext = new AdfsRedirectToAuthorizationContext(

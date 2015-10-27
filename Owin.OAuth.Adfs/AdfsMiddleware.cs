@@ -68,12 +68,6 @@ namespace Owin.OAuth.Adfs
                 Options.StateDataFormat = new PropertiesDataFormat(dataProtecter);
             }
 
-            if (string.IsNullOrEmpty(Options.ClaimsIssuer))
-            {
-                // Default to something reasonable
-                Options.ClaimsIssuer = Options.AuthenticationType;
-            }
-
             _logger = app.CreateLogger<AdfsOptions>();
 
             _httpClient = new HttpClient(Options.BackchannelHttpHandler ?? new HttpClientHandler());
