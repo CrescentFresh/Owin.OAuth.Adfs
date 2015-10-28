@@ -105,11 +105,54 @@ namespace Owin.OAuth.Adfs
             return new AdfsOAuthTokenResponse(payload);
         }
 
-        protected virtual async Task<AuthenticationTicket> CreateTicketAsync(ClaimsIdentity identity, AuthenticationProperties properties, AdfsOAuthTokenResponse token)
+        protected virtual async Task<AuthenticationTicket> CreateTicketAsync(
+            ClaimsIdentity identity, AuthenticationProperties properties, AdfsOAuthTokenResponse token)
         {
+            var claims = CleanClaims(token.Claims).ToList();
+
+            if (!string.IsNullOrEmpty(Options.SubjectClaimType))
+            {
+                var subClaim = claims.Where(c => c.Type == Options.SubjectClaimType).ToArray();
+                if (subClaim.Length == 0)
+                    throw new Exception(string.Format("'{0}' claim not found in token response", Options.SubjectClaimType));
+                if (subClaim.Length > 1)
+                    throw new Exception(string.Format("Ambiguous (multiple) subject claims '{0}' found in token response", Options.SubjectClaimType));
+
+                // replace claim type
+                claims.Remove(subClaim[0]);
+                claims.Add(new Claim("sub", subClaim[0].Value, subClaim[0].ValueType));
+            }
+
+            if (Options.SaveTokensAsClaims)
+            {
+                claims.Add(new Claim("access_token", token.AccessToken,
+                                                            ClaimValueTypes.String));
+
+                if (!string.IsNullOrEmpty(token.RefreshToken))
+                {
+                    claims.Add(new Claim("refresh_token", token.RefreshToken,
+                                                ClaimValueTypes.String));
+                }
+
+                if (!string.IsNullOrEmpty(token.TokenType))
+                {
+                    claims.Add(new Claim("token_type", token.TokenType,
+                                                ClaimValueTypes.String));
+                }
+
+                if (token.ExpiresIn != 0)
+                {
+                    claims.Add(new Claim("expires_in", token.ExpiresIn.ToString(),
+                                                ClaimValueTypes.String));
+                }
+            }
+
+            var ticketIdentity = new ClaimsIdentity(claims, identity.AuthenticationType,
+                identity.NameClaimType, identity.RoleClaimType);
+
             var context = new AdfsCreatingTicketContext(Context, Options, _httpClient, token)
             {
-                Identity = identity,
+                Identity = ticketIdentity,
                 Properties = properties
             };
 
@@ -119,6 +162,12 @@ namespace Owin.OAuth.Adfs
                 return null;
 
             return new AuthenticationTicket(context.Identity, context.Properties);
+        }
+
+        IEnumerable<Claim> CleanClaims(IEnumerable<Claim> claims)
+        {
+            var exclude = new HashSet<string> { "aud", "iss", "iat", "exp", "auth_time", "authmethod", "ver", "appid" };
+            return claims.Where(c => !exclude.Contains(c.Type));
         }
 
         protected override async Task ApplyResponseChallengeAsync()
@@ -190,11 +239,8 @@ namespace Owin.OAuth.Adfs
                 return true;
             }
 
-            var context = new AdfsTicketReceivedContext(Context, Options, ticket)
-            {
-                SignInScheme = Options.SignInScheme,
-                ReturnUri = ticket.Properties.RedirectUri,
-            };
+            var context = new AdfsTicketReceivedContext(Context, Options, ticket);
+
             // REVIEW: is this safe or good?
             ticket.Properties.RedirectUri = null;
 
@@ -212,7 +258,7 @@ namespace Owin.OAuth.Adfs
                 return false;
             }
 
-            if (context.SignInScheme != null && context.Identity != null)
+            if (context.Identity != null)
             {
                 Context.Authentication.SignIn(context.Properties, context.Identity);
             }
