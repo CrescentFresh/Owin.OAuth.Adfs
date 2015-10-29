@@ -112,15 +112,13 @@ namespace Owin.OAuth.Adfs
 
             if (!string.IsNullOrEmpty(Options.SubjectClaimType))
             {
-                var subClaim = claims.Where(c => c.Type == Options.SubjectClaimType).ToArray();
-                if (subClaim.Length == 0)
-                    throw new Exception(string.Format("'{0}' claim not found in token response", Options.SubjectClaimType));
-                if (subClaim.Length > 1)
-                    throw new Exception(string.Format("Ambiguous (multiple) subject claims '{0}' found in token response", Options.SubjectClaimType));
-
-                // replace claim type
-                claims.Remove(subClaim[0]);
-                claims.Add(new Claim("sub", subClaim[0].Value, subClaim[0].ValueType));
+                var subClaim = claims.FirstOrDefault(c => c.Type == Options.SubjectClaimType);
+                if (subClaim != null)
+                {
+                    // replace claim type
+                    claims.Remove(subClaim);
+                    claims.Add(new Claim("sub", subClaim.Value, subClaim.ValueType));
+                }
             }
 
             if (Options.SaveTokensAsClaims)
@@ -177,33 +175,33 @@ namespace Owin.OAuth.Adfs
 
             AuthenticationResponseChallenge challenge = Helper.LookupChallenge(Options.AuthenticationType, Options.AuthenticationMode);
 
-            if (challenge != null)
+            if (challenge == null)
+                return;
+
+            AuthenticationProperties properties = challenge.Properties;
+            if (string.IsNullOrEmpty(properties.RedirectUri))
             {
-                AuthenticationProperties properties = challenge.Properties;
-                if (string.IsNullOrEmpty(properties.RedirectUri))
-                {
-                    properties.RedirectUri = CurrentUri;
-                }
-
-                // OAuth2 10.12 CSRF
-                GenerateCorrelationId(properties);
-
-                string state = Options.StateDataFormat.Protect(properties);
-
-                string authorizationEndpoint =
-                    Options.AuthorizationEndpoint +
-                        "?response_type=code" +
-                        "&resource=" + Uri.EscapeDataString(Options.Resource) +
-                        "&client_id=" + Uri.EscapeDataString(Options.ClientId) +
-                        "&redirect_uri=" + Uri.EscapeDataString(BuildRedirectUri(Options.CallbackPath)) +
-                        "&state=" + Uri.EscapeDataString(state);
-
-                var redirectContext = new AdfsRedirectToAuthorizationContext(
-                    Context, Options,
-                    properties, authorizationEndpoint);
-
-                await Options.Events.RedirectToAuthorizationEndpoint(redirectContext).ConfigureAwait(false);
+                properties.RedirectUri = CurrentUri;
             }
+
+            // OAuth2 10.12 CSRF
+            GenerateCorrelationId(properties);
+
+            string state = Options.StateDataFormat.Protect(properties);
+
+            string authorizationEndpoint =
+                Options.AuthorizationEndpoint +
+                    "?response_type=code" +
+                    "&resource=" + Uri.EscapeDataString(Options.Resource) +
+                    "&client_id=" + Uri.EscapeDataString(Options.ClientId) +
+                    "&redirect_uri=" + Uri.EscapeDataString(BuildRedirectUri(Options.CallbackPath)) +
+                    "&state=" + Uri.EscapeDataString(state);
+
+            var redirectContext = new AdfsRedirectToAuthorizationContext(
+                Context, Options,
+                properties, authorizationEndpoint);
+
+            await Options.Events.RedirectToAuthorizationEndpoint(redirectContext).ConfigureAwait(false);
         }
 
         public override async Task<bool> InvokeAsync()
