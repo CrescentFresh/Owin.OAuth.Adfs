@@ -19,26 +19,28 @@ namespace Owin.OAuth.Adfs
         public string RefreshToken { get; set; }
         public int ExpiresIn { get; set; }
         public IEnumerable<Claim> Claims { get; set; }
+        public string Issuer { get; set; }
 
         public AdfsOAuthTokenResponse(dynamic response)
         {
             Response = response;
-            AccessToken = AdfsHelper.Value<string>(response, "access_token");
+            Parse(AdfsHelper.Value<string>(response, "access_token"));
             TokenType = AdfsHelper.Value<string>(response, "token_type");
             RefreshToken = AdfsHelper.Value<string>(response, "refresh_token");
             ExpiresIn = AdfsHelper.Value<int>(response, "expires_in");
-
-            ParseClaims(AccessToken);
         }
 
-        internal void ParseClaims(string jwt)
+        internal void Parse(string accessToken)
         {
             /**
              * ADFS does not have a user endpoint that I know of. Need to assume
              * token is a JWT and that claims for the user are contained therein.
              */
-            var token = new JwtSecurityToken(jwt);
-            Claims = token.Claims;
+            var token = new JwtSecurityToken(accessToken);
+
+            AccessToken = accessToken; // only got here if token was a valid jwt
+            Claims = token.Claims.ToArray();
+            Issuer = token.Issuer;
         }
     }
 }

@@ -14,7 +14,6 @@ namespace Owin.OAuth.Adfs
         public AdfsOptions()
             : base(Scheme)
         {
-            SubjectClaimType = "sub";
             DisplayName = "AD FS sign-on using OAuth2";
             AuthenticationMode = AuthenticationMode.Passive;
             BackchannelTimeout = TimeSpan.FromSeconds(60);
@@ -69,8 +68,11 @@ namespace Owin.OAuth.Adfs
         public string ClientId { get; set; }
 
         /// <summary>
-        /// Gets or sets the claim type inspected in the access token issued by the OAuth2 token
-        /// endpoint used as the unique identifier for the subject. Defaults to "sub".
+        /// Gets or sets the claim type that is used as the subject identifier when 
+        /// inspecting the access token issued by the OAuth2 token endpoint.
+        /// The default behavior is to look for the "sub" claim then the xml nameidentifier
+        /// claim. Only if neither of these claims are present will this property be
+        /// used.
         /// </summary>
         public string SubjectClaimType { get; set; }
 

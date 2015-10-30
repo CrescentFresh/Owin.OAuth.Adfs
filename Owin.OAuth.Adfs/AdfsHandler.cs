@@ -112,36 +112,37 @@ namespace Owin.OAuth.Adfs
 
             if (!string.IsNullOrEmpty(Options.SubjectClaimType))
             {
-                var subClaim = claims.FirstOrDefault(c => c.Type == Options.SubjectClaimType);
-                if (subClaim != null)
+                var altSubClaim = claims.FirstOrDefault(c => c.Type == Options.SubjectClaimType);
+                if (altSubClaim != null)
                 {
-                    // replace claim type
-                    claims.Remove(subClaim);
-                    claims.Add(new Claim("sub", subClaim.Value, subClaim.ValueType));
+                    // replace existing sub claim
+                    // TODO: is it safe to leave the existing sub claim alone?
+                    claims.RemoveAll(m => m.Type == "sub");
+                    claims.Add(new Claim("sub", altSubClaim.Value, altSubClaim.ValueType, token.Issuer));
                 }
             }
 
             if (Options.SaveTokensAsClaims)
             {
                 claims.Add(new Claim("access_token", token.AccessToken,
-                                                            ClaimValueTypes.String));
+                                     ClaimValueTypes.String, token.Issuer));
 
                 if (!string.IsNullOrEmpty(token.RefreshToken))
                 {
                     claims.Add(new Claim("refresh_token", token.RefreshToken,
-                                                ClaimValueTypes.String));
+                                         ClaimValueTypes.String, token.Issuer));
                 }
 
                 if (!string.IsNullOrEmpty(token.TokenType))
                 {
                     claims.Add(new Claim("token_type", token.TokenType,
-                                                ClaimValueTypes.String));
+                                         ClaimValueTypes.String, token.Issuer));
                 }
 
                 if (token.ExpiresIn != 0)
                 {
                     claims.Add(new Claim("expires_in", token.ExpiresIn.ToString(),
-                                                ClaimValueTypes.String));
+                                         ClaimValueTypes.String, token.Issuer));
                 }
             }
 
