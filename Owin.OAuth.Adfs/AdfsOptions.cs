@@ -5,8 +5,6 @@ using Microsoft.Owin.Security;
 
 namespace Owin.OAuth.Adfs
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1704:IdentifiersShouldBeSpelledCorrectly", MessageId = "Auth",
-        Justification = "OAuth2 is a valid word.")]
     public class AdfsOptions : AuthenticationOptions
     {
         public const string Scheme = "AdfsOAuth2";
