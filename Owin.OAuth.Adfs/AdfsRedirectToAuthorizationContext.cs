@@ -28,7 +28,7 @@ namespace Owin.OAuth.Adfs
             Options = options;
         }
 
-        public AdfsOptions Options { get; }
+        public AdfsOptions Options { get; private set; }
 
         /// <summary>
         /// Gets the URI used for the redirect operation.
