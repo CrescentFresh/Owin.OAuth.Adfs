@@ -149,6 +149,6 @@ namespace Owin.OAuth.Adfs
         /// You can set this property to <c>false</c> to reduce the size of the final
         /// authentication cookie. The default value is <c>true</c>.
         /// </summary>
-        public bool SaveTokensAsClaims { get; set; } = true;
+        public bool SaveTokensAsClaims { get; set; }
     }
 }
