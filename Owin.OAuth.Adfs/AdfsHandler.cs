@@ -46,7 +46,7 @@ namespace Owin.OAuth.Adfs
                 properties = Options.StateDataFormat.Unprotect(state);
                 if (properties == null)
                 {
-                    _logger.WriteWarning("The oauth state was missing or invalid.");
+                    _logger.WriteWarning($"{Options.AuthenticationType}: The oauth state was missing or invalid.");
                     return null;
                 }
 
@@ -62,7 +62,7 @@ namespace Owin.OAuth.Adfs
 
                 if (string.IsNullOrEmpty(token.AccessToken))
                 {
-                    _logger.WriteError("Access token was not found.");
+                    _logger.WriteError($"{Options.AuthenticationType}: Access token was not found.");
                     return new AuthenticationTicket(null, properties);
                 }
 
@@ -72,7 +72,7 @@ namespace Owin.OAuth.Adfs
             }
             catch (Exception ex)
             {
-                _logger.WriteError("Authentication failed", ex);
+                _logger.WriteError($"{Options.AuthenticationType}: Authentication failed", ex);
                 return new AuthenticationTicket(null, properties);
             }
         }
@@ -97,11 +97,25 @@ namespace Owin.OAuth.Adfs
             var requestMessage = new HttpRequestMessage(HttpMethod.Post, Options.TokenEndpoint);
             requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             requestMessage.Content = requestContent;
+
+            _logger.WriteInformation($"{Options.AuthenticationType}: trying code->token exchange");
+
             var response = await _httpClient.SendAsync(requestMessage, Context.Request.CallCancelled).ConfigureAwait(false);
+
+            {
+                IEnumerable<string> contentLength;
+                response.Content.Headers.TryGetValues("Content-Length", out contentLength);
+                _logger.WriteInformation(string.Format(
+                    "{0}: code->token exchange response (status={1}, content-length={2})", Options.AuthenticationType,
+                    response.StatusCode,
+                    (contentLength ?? Enumerable.Empty<string>()).FirstOrDefault()));
+            }
+
             response.EnsureSuccessStatusCode();
 
             var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            var payload = JSON.DeserializeDynamic(new StreamReader(stream));
+            dynamic payload = JSON.DeserializeDynamic(new StreamReader(stream));
+
             return new AdfsOAuthTokenResponse(payload);
         }
 
@@ -149,6 +163,8 @@ namespace Owin.OAuth.Adfs
             var ticketIdentity = new ClaimsIdentity(claims, identity.AuthenticationType,
                 identity.NameClaimType, identity.RoleClaimType);
 
+            _logger.WriteInformation($"{Options.AuthenticationType}: creating ticket from remote token: {token.AccessToken}");
+
             var context = new AdfsCreatingTicketContext(Context, Options, _httpClient, token)
             {
                 Identity = ticketIdentity,
@@ -158,7 +174,10 @@ namespace Owin.OAuth.Adfs
             await Options.Events.CreatingTicket(context).ConfigureAwait(false);
 
             if (context.Identity == null)
+            {
+                _logger.WriteWarning($"{Options.AuthenticationType}: The CreatingTicket event has set the identity to null");
                 return null;
+            }
 
             return new AuthenticationTicket(context.Identity, context.Properties);
         }
@@ -224,7 +243,7 @@ namespace Owin.OAuth.Adfs
                 var errorContext = new AdfsErrorContext(Context,
                     new Exception("Invalid return state, unable to redirect."));
 
-                _logger.WriteWarning("Error from RemoteAuthentication: " + errorContext.Error.Message);
+                _logger.WriteWarning($"{Options.AuthenticationType}: Error from RemoteAuthentication: " + errorContext.Error.Message);
 
                 await Options.Events.RemoteError(errorContext).ConfigureAwait(false);
 
@@ -247,13 +266,13 @@ namespace Owin.OAuth.Adfs
 
             if (context.HandledResponse)
             {
-                _logger.WriteVerbose("The SigningIn event returned Handled.");
+                _logger.WriteVerbose($"{Options.AuthenticationType}: The TicketReceived event returned Handled.");
                 return true;
             }
 
             if (context.Skipped)
             {
-                _logger.WriteVerbose("The SigningIn event returned Skipped.");
+                _logger.WriteVerbose($"{Options.AuthenticationType}: The TicketReceived event returned Skipped.");
                 return false;
             }
 
